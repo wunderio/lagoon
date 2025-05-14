@@ -225,8 +225,39 @@ fi
 
 echo "${UUID}: Exec to pod='${POD}' for project='${PROJECT}' cluster='${CLUSTER_NAME}' service='${SERVICE}'"  >> /proc/1/fd/1
 
+# Session recording via script
+RECORDING_LOCATION="/home/rsh/rec/${PROJECT}/$(date +%Y-%m-%d)"
+RECORDING="/usr/bin/script ${RECORDING_LOCATION}/${UUID} --timing=${RECORDING_LOCATION}/${UUID}.tm --quiet --return"
+RECORDING_META=$(
+  cat <<EOF
+{
+  "uuid": "$UUID",
+  "timestamp": "$(date -u +%FT%TZ)",
+  "cluster": "$CLUSTER_NAME",
+  "project": "$PROJECT",
+  "service": "$SERVICE",
+  "pod": "$POD",
+  "container": "$CONTAINER",
+  "ssh_key": "$USER_SSH_KEY"
+}
+EOF
+)
 if [[ -z "$*" ]]; then
-  exec $KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh
+  if [[ -w "/home/rsh/rec" ]]; then
+    mkdir -p "${RECORDING_LOCATION}"
+    echo "${RECORDING_META}" > "${RECORDING_LOCATION}/${UUID}.json"
+    exec $RECORDING -c "$KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh"
+  else
+    exec $KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh
+  fi
 else
-  exec $KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh -c "$*"
+  if [[ -w "/home/rsh/rec" ]]; then
+    mkdir -p "${RECORDING_LOCATION}"
+    echo "${RECORDING_META}" > "${RECORDING_LOCATION}/${UUID}.json"
+    exec $RECORDING -c "$KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh -c \"$*\""
+  else
+    exec $KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh -c "$*"
+  fi
+fi
+
 fi
