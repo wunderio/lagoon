@@ -238,22 +238,26 @@ RECORDING_META=$(
   "service": "$SERVICE",
   "pod": "$POD",
   "container": "$CONTAINER",
-  "ssh_key": "$USER_SSH_KEY"
+  "ssh_key": "$USER_SSH_KEY",
+  "ssh_command": "$*"
 }
 EOF
 )
+if [[ -w "/home/rsh/rec" ]]; then
+  mkdir -p "${RECORDING_LOCATION}"
+  echo "${RECORDING_META}" > "${RECORDING_LOCATION}/${UUID}.json"
+  RECORDING_ENABLED=true
+else
+  RECORDING_ENABLED=false
+fi
 if [[ -z "$*" ]]; then
-  if [[ -w "/home/rsh/rec" ]]; then
-    mkdir -p "${RECORDING_LOCATION}"
-    echo "${RECORDING_META}" > "${RECORDING_LOCATION}/${UUID}.json"
+  if [[ $RECORDING_ENABLED && "$*" != rsync\ --server* && "$*" != scp* ]]; then
     exec $RECORDING -c "$KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh"
   else
     exec $KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh
   fi
 else
-  if [[ -w "/home/rsh/rec" ]]; then
-    mkdir -p "${RECORDING_LOCATION}"
-    echo "${RECORDING_META}" > "${RECORDING_LOCATION}/${UUID}.json"
+  if [[ $RECORDING_ENABLED && "$*" != rsync\ --server* && "$*" != scp* ]]; then
     exec $RECORDING -c "$KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh -c \"$*\""
   else
     exec $KUBECTL exec ${POD} -c ${CONTAINER} -i ${TTY_PARAMETER} -- sh -c "$*"
