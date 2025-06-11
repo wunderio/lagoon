@@ -1,6 +1,14 @@
 ARG UPSTREAM_REPO
 ARG UPSTREAM_TAG
 FROM ${UPSTREAM_REPO:-uselagoon}/commons:${UPSTREAM_TAG:-latest} AS commons
+
+# build recorder in services/ssh/recorder directory and copy it to /lagoon/recorder
+FROM golang:1.23 AS recorder
+WORKDIR /go/src/github.com/uselagoon/lagoon/services/ssh/recorder
+COPY services/ssh/recorder ./
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o recorder .
+
 FROM ubuntu:22.04
 
 ARG LAGOON_VERSION
@@ -48,6 +56,8 @@ RUN mkdir /tmp/libnss-ato \
     && make \
     && make install \
     && rm -rf /tmp/libnss-ato-master.tar.gz /tmp/libnss-ato
+
+COPY --from=recorder /go/src/github.com/uselagoon/lagoon/services/ssh/recorder/recorder /usr/bin/recorder
 
 RUN apt-get remove --purge -y build-essential \
     && apt-get autoremove -y \
